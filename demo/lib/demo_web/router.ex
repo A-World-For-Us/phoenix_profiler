@@ -19,6 +19,7 @@ defmodule DemoWeb.Router do
 
     get "/", PageController, :home
     live "/dummy", DummyLive
+    get "/conferences_plus_one", ConferenceController, :index_plus_one
     resources "/conferences", ConferenceController
   end
 

@@ -21,7 +21,12 @@ defmodule Demo.ConferencesTest do
     end
 
     test "create_conference/1 with valid data creates a conference" do
-      valid_attrs = %{date: ~N[2023-06-18 13:33:00], description: "some description", name: "some name", room: "some room"}
+      valid_attrs = %{
+        date: ~N[2023-06-18 13:33:00],
+        description: "some description",
+        name: "some name",
+        room: "some room"
+      }
 
       assert {:ok, %Conference{} = conference} = Conferences.create_conference(valid_attrs)
       assert conference.date == ~N[2023-06-18 13:33:00]
@@ -36,9 +41,17 @@ defmodule Demo.ConferencesTest do
 
     test "update_conference/2 with valid data updates the conference" do
       conference = conference_fixture()
-      update_attrs = %{date: ~N[2023-06-19 13:33:00], description: "some updated description", name: "some updated name", room: "some updated room"}
 
-      assert {:ok, %Conference{} = conference} = Conferences.update_conference(conference, update_attrs)
+      update_attrs = %{
+        date: ~N[2023-06-19 13:33:00],
+        description: "some updated description",
+        name: "some updated name",
+        room: "some updated room"
+      }
+
+      assert {:ok, %Conference{} = conference} =
+               Conferences.update_conference(conference, update_attrs)
+
       assert conference.date == ~N[2023-06-19 13:33:00]
       assert conference.description == "some updated description"
       assert conference.name == "some updated name"
@@ -47,7 +60,10 @@ defmodule Demo.ConferencesTest do
 
     test "update_conference/2 with invalid data returns error changeset" do
       conference = conference_fixture()
-      assert {:error, %Ecto.Changeset{}} = Conferences.update_conference(conference, @invalid_attrs)
+
+      assert {:error, %Ecto.Changeset{}} =
+               Conferences.update_conference(conference, @invalid_attrs)
+
       assert conference == Conferences.get_conference!(conference.id)
     end
 

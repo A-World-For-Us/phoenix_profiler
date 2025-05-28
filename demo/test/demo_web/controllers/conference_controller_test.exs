@@ -3,8 +3,18 @@ defmodule DemoWeb.ConferenceControllerTest do
 
   import Demo.ConferencesFixtures
 
-  @create_attrs %{date: ~N[2023-06-18 13:33:00], description: "some description", name: "some name", room: "some room"}
-  @update_attrs %{date: ~N[2023-06-19 13:33:00], description: "some updated description", name: "some updated name", room: "some updated room"}
+  @create_attrs %{
+    date: ~N[2023-06-18 13:33:00],
+    description: "some description",
+    name: "some name",
+    room: "some room"
+  }
+  @update_attrs %{
+    date: ~N[2023-06-19 13:33:00],
+    description: "some updated description",
+    name: "some updated name",
+    room: "some updated room"
+  }
   @invalid_attrs %{date: nil, description: nil, name: nil, room: nil}
 
   describe "index" do

@@ -8,10 +8,10 @@
 </.header>
 
 <.table id="conferences" rows={@conferences} row_click={&JS.navigate(~p"/conferences/#{&1}")}>
-  <:col :let={conference} label="Name"><%= conference.name %></:col>
-  <:col :let={conference} label="Description"><%= conference.description %></:col>
-  <:col :let={conference} label="Room"><%= conference.room %></:col>
-  <:col :let={conference} label="Date"><%= conference.date %></:col>
+  <:col :let={conference} label="Name">{conference.name}</:col>
+  <:col :let={conference} label="Description">{conference.description}</:col>
+  <:col :let={conference} label="Room">{conference.room}</:col>
+  <:col :let={conference} label="Date">{conference.date}</:col>
   <:action :let={conference}>
     <div class="sr-only">
       <.link navigate={~p"/conferences/#{conference}"}>Show</.link>
