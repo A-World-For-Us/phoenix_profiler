@@ -12,11 +12,11 @@ defmodule PhoenixProfiler.Elements.RequestDuration do
       <:details>
         <.item :if={@endpoint}>
           <:label>Endpoint Duration</:label>
-          <:value><%= @endpoint.value %><%= @endpoint.label %></:value>
+          <:value>{@endpoint.value}{@endpoint.label}</:value>
         </.item>
         <.item :if={@latest_event}>
           <:label>Latest Event Duration</:label>
-          <:value><%= @latest_event.value %><%= @latest_event.label %></:value>
+          <:value>{@latest_event.value}{@latest_event.label}</:value>
         </.item>
       </:details>
     </.element>
@@ -32,8 +32,8 @@ defmodule PhoenixProfiler.Elements.RequestDuration do
       end)
 
     ~H"""
-    <%= @duration.value %>
-    <.label><%= @duration.label %></.label>
+    {@duration.value}
+    <.label>{@duration.label}</.label>
     """
   end
 

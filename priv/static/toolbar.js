@@ -7,12 +7,18 @@ function toggleToolbar(open) {
   localStorage.setItem(SHOW, String(open));
 }
 
+function toggleStackDialog(){
+	console.log("Nouvel event !");
+	document.getElementById("phxprof--stacktrace").showModal();
+}
+
 toolbar
   .querySelector(".show-button")
   .addEventListener("click", () => toggleToolbar(true));
 toolbar
   .querySelector(".hide-button")
   .addEventListener("click", () => toggleToolbar(false));
+document.getElementById("show-dialog").addEventListener("click", () => toggleStackDialog());
 
 toggleToolbar(localStorage.getItem(SHOW) === "true");
 

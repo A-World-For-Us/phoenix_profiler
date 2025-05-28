@@ -6,34 +6,34 @@ defmodule PhoenixProfiler.Elements.Request do
     ~H"""
     <.element aria-label={"Status, #{@status_phrase}"}>
       <:status color={@status_class}>
-        <%= @status_code %>
+        {@status_code}
       </:status>
 
       <:item>
         <.label>@</.label>
-        <%= @router_helper %>
+        {@router_helper}
       </:item>
 
       <:details>
         <.item>
           <:label>HTTP status</:label>
-          <:value><%= @status_code %> <%= @status_phrase %></:value>
+          <:value>{@status_code} {@status_phrase}</:value>
         </.item>
         <.item>
           <:label>Plug</:label>
-          <:value><%= @plug %></:value>
+          <:value>{@plug}</:value>
         </.item>
         <.item>
           <:label>Route action</:label>
-          <:value><%= @action %></:value>
+          <:value>{@action}</:value>
         </.item>
         <.item>
           <:label>Router</:label>
-          <:value><%= @router %></:value>
+          <:value>{@router}</:value>
         </.item>
         <.item>
           <:label>Endpoint</:label>
-          <:value><%= @endpoint %></:value>
+          <:value>{@endpoint}</:value>
         </.item>
       </:details>
     </.element>

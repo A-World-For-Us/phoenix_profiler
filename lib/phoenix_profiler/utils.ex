@@ -15,7 +15,8 @@ defmodule PhoenixProfiler.Utils do
                       PhoenixProfiler.Elements.Request,
                       PhoenixProfiler.Elements.RequestDuration,
                       PhoenixProfiler.Elements.MemoryUsage,
-                      if(Code.ensure_loaded?(Ecto), do: PhoenixProfiler.Elements.EctoRepoUsage),
+                      # if(Code.ensure_loaded?(Ecto), do: PhoenixProfiler.Elements.EctoRepoUsage),
+                      PhoenixProfiler.Elements.EctoRepoUsage,
                       PhoenixProfiler.Elements.LiveExceptions
                     ]
                     |> Enum.reject(&is_nil/1)

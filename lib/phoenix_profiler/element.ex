@@ -34,13 +34,13 @@ defmodule PhoenixProfiler.Element do
         :for={status <- @status}
         class={"phxprof-element-status phxprof-element-status-#{status.color}"}
       >
-        <%= render_slot(status) %>
+        {render_slot(status)}
       </span>
       <div class="phxprof-element-item">
-        <%= render_slot(@item) %>
+        {render_slot(@item)}
       </div>
       <div class="phxprof-toolbar-details">
-        <%= render_slot(@details) %>
+        {render_slot(@details)}
       </div>
     </div>
     """
@@ -51,7 +51,7 @@ defmodule PhoenixProfiler.Element do
   def label(assigns) do
     ~H"""
     <span class="phxprof-toolbar-label">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </span>
     """
   end
@@ -61,8 +61,8 @@ defmodule PhoenixProfiler.Element do
 
   def item(assigns) do
     ~H"""
-    <span class="phxprof-item-label"><%= render_slot(@label) %></span>
-    <span class="phxprof-item-value"><%= render_slot(@value) %></span>
+    <span class="phxprof-item-label">{render_slot(@label)}</span>
+    <span class="phxprof-item-value">{render_slot(@value)}</span>
     """
   end
 end
