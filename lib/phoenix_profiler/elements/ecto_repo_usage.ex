@@ -1,10 +1,10 @@
-# if Code.ensure_loaded?(Ecto) do
 defmodule PhoenixProfiler.Elements.EctoRepoUsage do
   use PhoenixProfiler.Element
 
   # TODO : First part should be dedicated to SQL queries only
   # N+1 detection can be centered around stacktraces
   # N+1 detection could be zoomed in a popup but it can represent a lot of HTML to render additionnaly, not sure what the politic is around this
+  @n_plus_one_repetition_threshold 5
 
   @impl PhoenixProfiler.Element
   def render(assigns) do
@@ -20,16 +20,30 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
           <span :if={@possible_n_plus_one == true}>Possible N+1 issue</span>
         </a>
       </:item>
+      <:details>
+        <.item>
+          <:label>Database Queries</:label>
+          <:value>{@count}</:value>
+        </.item>
+        <.item>
+          <:label>Different statements</:label>
+          <:value>{@unique_queries_count}</:value>
+        </.item>
+        <.item>
+          <:label>Total time</:label>
+          <:value>{@duration.value} {@duration.label}</:value>
+        </.item>
+      </:details>
     </.element>
     <dialog id="phxprof--stacktrace" style="width: 1000px; min-height: 350px;" class="code-analysis">
       <h1>Queries duration and execution counts - {@count}</h1>
-      <hr /> Queries & stacktrace <br />
+      <hr /> Queries & stacktrace <hr />
       <div id="query_list">
         <%= for query <- @queries do %>
           <details>
             <summary>
               <strong>{query.source}</strong>
-              : {String.slice(query.query, 0..50)}... - Executed {query.execution_count} - Total time: {query.total_time.value} {query.total_time.label}
+              : {String.slice(query.query, 0..50)}... - Executed {query.execution_count} times - Total time: {query.total_time.value} {query.total_time.label}
             </summary>
             <strong>Query</strong> <br />
             {query.query}
@@ -84,18 +98,22 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
 
   @impl PhoenixProfiler.Element
   def entries_assigns(entries) do
-    count = Enum.count(entries)
     total_duration = entries |> Stream.map(& &1.measurements.total_time) |> Enum.sum()
     aggregated_queries = aggregate_data_for_unique_queries(entries)
 
     %{
-      count: count,
+      count: length(entries),
       unique_queries_count: length(aggregated_queries),
       duration: formatted_duration(total_duration),
       queries: aggregated_queries,
-      possible_n_plus_one: Enum.at(aggregated_queries, 0).execution_count > 5
+      possible_n_plus_one: possible_n_plus_one?(Enum.at(aggregated_queries, 0))
     }
   end
+
+  defp possible_n_plus_one?(%{execution_count: exec_count}),
+    do: exec_count > @n_plus_one_repetition_threshold
+
+  defp possible_n_plus_one?(_), do: false
 
   # This should yield a list of maps 
   # %{
@@ -116,7 +134,6 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
           &(&1.query == unique_entry.query && &1.stacktrace == unique_entry.stacktrace)
         )
 
-      # How much time ?
       total_time = Enum.sum_by(filtered_entries, & &1.measurements.total_time)
 
       Map.merge(unique_entry, %{
@@ -128,12 +145,22 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
   end
 
   defp clean_stacktrace(stacktrace) do
+    filter_on_modules =
+      Enum.map(
+        Application.get_env(:phoenix_profiler, :filter_on_modules, []),
+        &String.replace(Atom.to_string(&1), "Elixir.", "")
+      )
+
+    clean_stacktrace(stacktrace, filter_on_modules)
+  end
+
+  defp clean_stacktrace(stacktrace, []), do: stacktrace
+
+  defp clean_stacktrace(stacktrace, filter_on_modules) do
     stacktrace
     |> Enum.reject(fn call ->
       module = elem(call, 0)
-
-      #  module == Demo.Repo or
-      Enum.at(String.split(Atom.to_string(module), "."), 1) not in ["Digiforma", "DigiformaWeb"]
+      Enum.at(String.split(Atom.to_string(module), "."), 1) not in filter_on_modules
     end)
   end
 
@@ -151,5 +178,3 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
     end
   end
 end
-
-# end

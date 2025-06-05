@@ -15,7 +15,7 @@ Provides a **development tool** that gives detailed information about the execut
 
 * Inspect LiveView crashes (Coming Soon)
 
-* Inspect Ecto queries
+* Inspect Ecto queries and detect N+1 queries.
 
 * Swoosh mailer integration (Coming Soon)
 
@@ -46,7 +46,16 @@ If you're using Ecto, configure the repositories you want the profiler to listen
 
 ```elixir
 config :phoenix_profiler,
-  ecto_repos: [MyApp.Repo]
+  ecto_repos: [MyApp.Repo],
+  enabled?: true
+```
+
+Additionaly, you can configure the N+1 detector to only show stacktraces from said modules.
+```elixir
+config :phoenix_profiler,
+  ecto_repos: [MyApp.Repo],
+  enabled?: true,
+  filter_on_modules: [Demo, DemoWeb]
 ```
 
 ### 2. Enable the profiler on your Endpoint

@@ -8,7 +8,6 @@ function toggleToolbar(open) {
 }
 
 function toggleStackDialog(){
-	console.log("Nouvel event !");
 	document.getElementById("phxprof--stacktrace").showModal();
 }
 
