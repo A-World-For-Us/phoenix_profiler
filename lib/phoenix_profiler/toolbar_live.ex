@@ -6,6 +6,8 @@ defmodule PhoenixProfiler.ToolbarLive do
   alias PhoenixProfiler.Server
   alias PhoenixProfiler.Utils
 
+  require Logger
+
   @toolbar_css Application.app_dir(:phoenix_profiler, "priv/static/toolbar.css")
                |> File.read!()
   @toolbar_js Application.app_dir(:phoenix_profiler, "priv/static/toolbar.js")
@@ -32,7 +34,7 @@ defmodule PhoenixProfiler.ToolbarLive do
         >
         </button>
       </div>
-      <%= live_render(@conn, __MODULE__, session: @session) %>
+      {live_render(@conn, __MODULE__, session: @session)}
     </div>
     <script>
       <%= Phoenix.HTML.raw(@toolbar_js) %>
@@ -48,7 +50,7 @@ defmodule PhoenixProfiler.ToolbarLive do
   def render(assigns) do
     ~H"""
     <%= for {element, assigns} <- @elements_assigns do %>
-      <%= element.render(assigns) %>
+      {element.render(assigns)}
     <% end %>
 
     <div class="phxprof-toolbar-spacer" />
@@ -62,36 +64,36 @@ defmodule PhoenixProfiler.ToolbarLive do
     ~H"""
     <div class="phxprof-element" aria-label="Config">
       <div class="phxprof-element-item phxprof-element-phoenix-logo">
-        <%= @system.phoenix %>
+        {@system.phoenix}
       </div>
 
       <div class="phxprof-toolbar-details" style="left: auto; right: 0px">
         <span class="phxprof-item-label">Profiler Token</span>
-        <span class="phxprof-item-value"><%= @token %></span>
+        <span class="phxprof-item-value">{@token}</span>
 
         <span class="phxprof-item-label">LiveView Version</span>
         <span class="phxprof-item-value">
           <a href={"https://hexdocs.pm/phoenix_live_view/#{@system.phoenix_live_view}/"}>
-            <%= @system.phoenix_live_view %>
+            {@system.phoenix_live_view}
           </a>
         </span>
 
         <span class="phxprof-item-label">Elixir Version</span>
         <span class="phxprof-item-value">
           <a href={"https://hexdocs.pm/elixir/#{@system.elixir}/"}>
-            <%= @system.elixir %>
+            {@system.elixir}
           </a>
         </span>
 
         <span class="phxprof-item-label">OTP Release</span>
         <span class="phxprof-item-value">
-          <a href="https://erlang.org/erldoc"><%= @system.otp %></a>
+          <a href="https://erlang.org/erldoc">{@system.otp}</a>
         </span>
 
         <span class="phxprof-item-label">Resources</span>
         <span class="phxprof-item-value">
           <a href={"https://hexdocs.pm/phoenix/#{@system.phoenix}"}>
-            Read Phoenix <%= @system.phoenix %> Docs
+            Read Phoenix {@system.phoenix} Docs
           </a>
         </span>
 
@@ -103,7 +105,7 @@ defmodule PhoenixProfiler.ToolbarLive do
         <span class="phxprof-item-label">Toolbar version</span>
         <span class="phxprof-item-value">
           <a href={"https://hexdocs.pm/phoenix_profiler/#{@system.phoenix_profiler}"}>
-            <%= @system.phoenix_profiler %>
+            {@system.phoenix_profiler}
           </a>
         </span>
       </div>

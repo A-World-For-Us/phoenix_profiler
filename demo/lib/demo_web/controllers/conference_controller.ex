@@ -9,6 +9,21 @@ defmodule DemoWeb.ConferenceController do
     render(conn, :index, conferences: conferences)
   end
 
+  @doc """
+    Special route dedicated to N+1 query triggering, ineffective on purpose.
+  """
+  def index_plus_one(conn, _params) do
+    conferences = Conferences.list_conferences() |> Enum.take(100)
+
+    conferences =
+      conferences
+      |> Enum.map(fn conference ->
+        Map.put(conference, :guests, Demo.Guests.find_by_conference(conference))
+      end)
+
+    render(conn, :index, conferences: conferences)
+  end
+
   def new(conn, _params) do
     changeset = Conferences.change_conference(%Conference{})
     render(conn, :new, changeset: changeset)

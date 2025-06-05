@@ -1,5 +1,5 @@
 <.header>
-  Conference <%= @conference.id %>
+  Conference {@conference.id}
   <:subtitle>This is a conference record from your database.</:subtitle>
   <:actions>
     <.link href={~p"/conferences/#{@conference}/edit"}>
@@ -9,10 +9,10 @@
 </.header>
 
 <.list>
-  <:item title="Name"><%= @conference.name %></:item>
-  <:item title="Description"><%= @conference.description %></:item>
-  <:item title="Room"><%= @conference.room %></:item>
-  <:item title="Date"><%= @conference.date %></:item>
+  <:item title="Name">{@conference.name}</:item>
+  <:item title="Description">{@conference.description}</:item>
+  <:item title="Room">{@conference.room}</:item>
+  <:item title="Date">{@conference.date}</:item>
 </.list>
 
 <.back navigate={~p"/conferences"}>Back to conferences</.back>

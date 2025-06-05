@@ -27,11 +27,12 @@ config :demo, DemoWeb.Endpoint,
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}
-  ],
-  phoenix_profiler: []
+  ]
 
 config :phoenix_profiler,
-  ecto_repos: [Demo.Repo]
+  ecto_repos: [Demo.Repo],
+  enabled?: true,
+  filter_on_modules: [Demo, DemoWeb]
 
 # ## SSL Support
 #
