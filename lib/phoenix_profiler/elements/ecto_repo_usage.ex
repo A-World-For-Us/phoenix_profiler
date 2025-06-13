@@ -115,12 +115,12 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
 
   defp possible_n_plus_one?(_), do: false
 
-  # This should yield a list of maps 
+  # This should yield a list of maps
   # %{
   #    query: <SQL Query executed>,
   #    stacktrace: <Stack trace executing the query>,
   #    exec_count: <Number of execution of the query / stacktrace>
-  #    total_time: <Total time spent to execute the <exec_count> queries>  
+  #    total_time: <Total time spent to execute the <exec_count> queries>
   #  }
   #
   defp aggregate_data_for_unique_queries(entries) do
@@ -143,6 +143,8 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
     end)
     |> Enum.sort_by(& &1.execution_count, :desc)
   end
+
+  defp clean_stacktrace(nil), do: []
 
   defp clean_stacktrace(stacktrace) do
     filter_on_modules =
