@@ -16,6 +16,8 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
           <.label>in</.label>
           {@duration.value}
           <.label>{@duration.label}</.label>
+          <.label>•</.label>
+          {@total_data_size}
 
           <span :if={@possible_n_plus_one == true}>Possible N+1 issue</span>
         </a>
@@ -33,25 +35,56 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
           <:label>Total time</:label>
           <:value>{@duration.value} {@duration.label}</:value>
         </.item>
+        <.item>
+          <:label>Data loaded</:label>
+          <:value>{@total_data_size}</:value>
+        </.item>
       </:details>
     </.element>
-    <dialog id="phxprof--stacktrace" style="width: 1000px; min-height: 350px;" class="code-analysis">
-      <h1>Queries duration and execution counts - {@count}</h1>
-      <hr /> Queries & stacktrace <hr />
-      <div id="query_list">
+    <dialog id="phxprof--stacktrace" class="phxprof-dialog">
+      <div class="phxprof-dialog-header">
+        <h2 class="phxprof-dialog-title">Database Queries</h2>
+        <span class="phxprof-dialog-meta">
+          {@count} total &middot; {@unique_queries_count} unique &middot; {@total_data_size} loaded
+        </span>
+        <button class="phxprof-dialog-close" id="close-dialog" aria-label="Close">&times;</button>
+      </div>
+      <div class="phxprof-query-table-header">
+        <span>Source</span>
+        <span>Query</span>
+        <span>Exec.</span>
+        <span>Time</span>
+        <span>Data</span>
+      </div>
+      <div id="query_list" class="phxprof-query-list">
         <%= for query <- @queries do %>
-          <details>
-            <summary>
-              <strong>{query.source}</strong>
-              : {String.slice(query.query, 0..50)}... - Executed {query.execution_count} times - Total time: {query.total_time.value} {query.total_time.label}
+          <details class="phxprof-query-row">
+            <summary class="phxprof-query-summary">
+              <span class="phxprof-query-source">{query.source}</span>
+              <span class="phxprof-query-sql">
+                <span :if={query.possible_n_plus_one} class="phxprof-n-plus-one-badge">N+1</span>
+                {String.slice(query.query, 0..100)}
+              </span>
+              <span class="phxprof-query-count">{query.execution_count}&times;</span>
+              <span class="phxprof-query-time">
+                {query.total_time.value} {query.total_time.label}
+              </span>
+              <span class="phxprof-query-data">{query.formatted_data_size}</span>
             </summary>
-            <strong>Query</strong> <br />
-            {query.query}
-            <br />
-            <strong>Stacktrace</strong> <br />
-            <%= for stack_entry <- clean_stacktrace(query.stacktrace) do %>
-              {Exception.format_stacktrace_entry(stack_entry)} <br />
-            <% end %>
+            <div class="phxprof-query-detail">
+              <div>
+                <span class="phxprof-query-detail-label">Full Query</span>
+                <code class="phxprof-query-code">{query.query}</code>
+              </div>
+              <details class="phxprof-stacktrace-toggle">
+                <summary class="phxprof-stacktrace-summary">Stacktrace</summary>
+                <div class="phxprof-query-stacktrace">
+                  <%= for stack_entry <- clean_stacktrace(query.stacktrace) do %>
+                    <span>{Exception.format_stacktrace_entry(stack_entry)}</span>
+                  <% end %>
+                </div>
+              </details>
+            </div>
           </details>
         <% end %>
       </div>
@@ -92,19 +125,29 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
       query: metadata.query,
       source: metadata.source,
       repo: metadata.repo,
-      stacktrace: metadata.stacktrace
+      stacktrace: metadata.stacktrace,
+      data_size: measure_result_size(metadata[:result])
     }
   end
+
+  defp measure_result_size({:ok, result}) do
+    word_size = :erlang.system_info(:wordsize)
+    :erts_debug.flat_size(result) * word_size
+  end
+
+  defp measure_result_size(_), do: 0
 
   @impl PhoenixProfiler.Element
   def entries_assigns(entries) do
     total_duration = entries |> Stream.map(& &1.measurements.total_time) |> Enum.sum()
+    total_data_size = entries |> Enum.sum_by(& &1.data_size)
     aggregated_queries = aggregate_data_for_unique_queries(entries)
 
     %{
       count: length(entries),
       unique_queries_count: length(aggregated_queries),
       duration: formatted_duration(total_duration),
+      total_data_size: format_bytes(total_data_size),
       queries: aggregated_queries,
       possible_n_plus_one: possible_n_plus_one?(Enum.at(aggregated_queries, 0))
     }
@@ -136,9 +179,16 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
 
       total_time = Enum.sum_by(filtered_entries, & &1.measurements.total_time)
 
+      total_data_size = Enum.sum_by(filtered_entries, & &1.data_size)
+
+      execution_count = length(filtered_entries)
+
       Map.merge(unique_entry, %{
         total_time: formatted_duration(total_time),
-        execution_count: length(filtered_entries)
+        execution_count: execution_count,
+        total_data_size: total_data_size,
+        formatted_data_size: format_bytes(total_data_size),
+        possible_n_plus_one: execution_count > @n_plus_one_repetition_threshold
       })
     end)
     |> Enum.sort_by(& &1.execution_count, :desc)
@@ -165,6 +215,14 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
       Enum.at(String.split(Atom.to_string(module), "."), 1) not in filter_on_modules
     end)
   end
+
+  defp format_bytes(bytes) when bytes < 1_000, do: "#{bytes} bytes"
+  defp format_bytes(bytes) when bytes < 1_000_000, do: "#{Float.round(bytes / 1_000, 1)} KB"
+
+  defp format_bytes(bytes) when bytes < 1_000_000_000,
+    do: "#{Float.round(bytes / 1_000_000, 1)} MB"
+
+  defp format_bytes(bytes), do: "#{Float.round(bytes / 1_000_000_000, 1)} GB"
 
   defp formatted_duration(nil), do: nil
 

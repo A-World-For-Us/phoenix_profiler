@@ -185,3 +185,232 @@
     display: none !important;
   }
 }
+
+/* ─── Query dialog ─────────────────────────────────────────────── */
+
+/* Shared column layout – MUST be identical on header and summary rows */
+.phxprof-query-table-header,
+.phxprof-query-summary {
+  display: grid;
+  grid-template-columns: 7rem 1fr 4rem 5.5rem 5.5rem;
+  align-items: center;
+  gap: 0 1rem;
+  padding: 0.5rem 1rem;
+}
+
+.phxprof-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  width: min(1100px, 96vw);
+  min-height: 350px;
+  max-height: 80vh;
+  padding: 0;
+  border: 1px solid var(--color-stroke);
+  border-radius: 0.375rem;
+  background-color: var(--color-canvas-default);
+  color: var(--color-fg-default);
+  font-size: 0.875rem;
+  overflow: hidden;
+}
+
+.phxprof-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.phxprof-dialog-header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-stroke);
+  background-color: var(--color-canvas-secondary);
+  flex-shrink: 0;
+}
+
+.phxprof-dialog-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--color-fg-secondary);
+  padding: 0 0.25rem;
+}
+
+.phxprof-dialog-close:hover {
+  color: var(--color-fg-default);
+}
+
+.phxprof-dialog-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-fg-default);
+}
+
+.phxprof-dialog-meta {
+  color: var(--color-fg-secondary);
+  font-size: 0.8rem;
+}
+
+.phxprof-query-table-header {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-fg-secondary);
+  background-color: var(--color-canvas-secondary);
+  border-bottom: 2px solid var(--color-stroke);
+  flex-shrink: 0;
+}
+
+.phxprof-query-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.phxprof-query-row {
+  border-bottom: 1px solid var(--color-stroke);
+}
+
+.phxprof-query-row:last-child {
+  border-bottom: none;
+}
+
+/* summary acts as the table row */
+.phxprof-query-summary {
+  list-style: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.phxprof-query-summary::-webkit-details-marker {
+  display: none;
+}
+
+.phxprof-query-summary:hover {
+  background-color: var(--color-canvas-secondary);
+}
+
+.phxprof-query-source {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--color-link);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phxprof-query-sql {
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: var(--color-fg-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phxprof-n-plus-one-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.35rem;
+  font-family: sans-serif;
+  font-size: 0.65rem;
+  font-weight: bold;
+  color: #fff;
+  background-color: #e05252;
+  border-radius: 3px;
+  vertical-align: middle;
+  letter-spacing: 0.03em;
+}
+
+.phxprof-query-count,
+.phxprof-query-time,
+.phxprof-query-data {
+  text-align: right;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ─── Expanded detail panel ────────────────────────────────────── */
+
+.phxprof-query-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem 0.75rem 1.5rem;
+  background-color: var(--color-canvas-secondary);
+  border-top: 1px solid var(--color-stroke);
+}
+
+.phxprof-query-detail-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-fg-secondary);
+  margin-bottom: 0.2rem;
+}
+
+.phxprof-query-code {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--color-canvas-default);
+  border: 1px solid var(--color-stroke);
+  border-radius: 0.25rem;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--color-fg-default);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ─── Stacktrace nested toggle ─────────────────────────────────── */
+
+.phxprof-stacktrace-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-fg-secondary);
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: 0.2rem;
+}
+
+.phxprof-stacktrace-summary::-webkit-details-marker {
+  display: none;
+}
+
+.phxprof-stacktrace-summary::after {
+  content: '▶';
+  font-size: 0.55rem;
+  transition: transform 0.15s ease;
+}
+
+.phxprof-stacktrace-toggle[open] > .phxprof-stacktrace-summary::after {
+  transform: rotate(90deg);
+}
+
+.phxprof-query-stacktrace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--color-canvas-default);
+  border: 1px solid var(--color-stroke);
+  border-radius: 0.25rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--color-fg-secondary);
+}

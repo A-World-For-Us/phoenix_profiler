@@ -8,10 +8,12 @@ defmodule PhoenixProfiler.ToolbarLive do
 
   require Logger
 
-  @toolbar_css Application.app_dir(:phoenix_profiler, "priv/static/toolbar.css")
-               |> File.read!()
-  @toolbar_js Application.app_dir(:phoenix_profiler, "priv/static/toolbar.js")
-              |> File.read!()
+  @toolbar_css_path Application.app_dir(:phoenix_profiler, "priv/static/toolbar.css")
+  @toolbar_js_path Application.app_dir(:phoenix_profiler, "priv/static/toolbar.js")
+  @external_resource @toolbar_css_path
+  @external_resource @toolbar_js_path
+  @toolbar_css File.read!(@toolbar_css_path)
+  @toolbar_js File.read!(@toolbar_js_path)
 
   def toolbar(assigns) do
     assigns =
