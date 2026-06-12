@@ -52,9 +52,15 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
       <div class="phxprof-query-table-header">
         <span>Source</span>
         <span>Query</span>
-        <span>Exec.</span>
-        <span>Time</span>
-        <span>Data</span>
+        <button class="phxprof-sort-btn" data-sort-col="count">
+          Exec. <span class="phxprof-sort-icon">▼</span>
+        </button>
+        <button class="phxprof-sort-btn" data-sort-col="time">
+          Time <span class="phxprof-sort-icon"></span>
+        </button>
+        <button class="phxprof-sort-btn" data-sort-col="data">
+          Data <span class="phxprof-sort-icon"></span>
+        </button>
       </div>
       <div id="query_list" class="phxprof-query-list">
         <%= for query <- @queries do %>
@@ -65,11 +71,15 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
                 <span :if={query.possible_n_plus_one} class="phxprof-n-plus-one-badge">N+1</span>
                 {String.slice(query.query, 0..100)}
               </span>
-              <span class="phxprof-query-count">{query.execution_count}&times;</span>
-              <span class="phxprof-query-time">
+              <span class="phxprof-query-count" data-sort-value={query.execution_count}>
+                {query.execution_count}&times;
+              </span>
+              <span class="phxprof-query-time" data-sort-value={query.total_time_us}>
                 {query.total_time.value} {query.total_time.label}
               </span>
-              <span class="phxprof-query-data">{query.formatted_data_size}</span>
+              <span class="phxprof-query-data" data-sort-value={query.total_data_size}>
+                {query.formatted_data_size}
+              </span>
             </summary>
             <div class="phxprof-query-detail">
               <div>
@@ -178,6 +188,7 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
         )
 
       total_time = Enum.sum_by(filtered_entries, & &1.measurements.total_time)
+      total_time_us = System.convert_time_unit(total_time, :native, :microsecond)
 
       total_data_size = Enum.sum_by(filtered_entries, & &1.data_size)
 
@@ -185,6 +196,7 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
 
       Map.merge(unique_entry, %{
         total_time: formatted_duration(total_time),
+        total_time_us: total_time_us,
         execution_count: execution_count,
         total_data_size: total_data_size,
         formatted_data_size: format_bytes(total_data_size),
