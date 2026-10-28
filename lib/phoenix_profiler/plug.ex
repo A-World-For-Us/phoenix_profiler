@@ -65,7 +65,7 @@ defmodule PhoenixProfiler.Plug do
   defp has_body?(resp_body), do: String.contains?(resp_body, "<body")
 
   defp debug_toolbar_assets_tag(conn) do
-    config = Utils.conn_or_socket_config(conn)
+    config = Utils.conn_or_socket_config(conn) || []
 
     toolbar_attrs = Keyword.get(config, :toolbar_attrs, [])
     token = conn.private.phoenix_profiler

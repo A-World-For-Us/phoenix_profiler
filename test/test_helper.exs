@@ -1,36 +1,44 @@
-Application.put_env(:phoenix_profiler, PhoenixProfilerTest.Endpoint,
+endpoint_config = [
   url: [host: "localhost", port: 4000],
   secret_key_base: "LIyk9co9Mt8KowH/g1WeMkufq/9Bz1XuEZMhCZAwnBc7VFKCfkDq/vRw+Xso4Q0q",
   live_view: [signing_salt: "NbA2FdHo"],
-  render_errors: [view: PhoenixProfilerTest.ErrorView],
-  check_origin: false,
-  pubsub_server: PhoenixProfilerTest.PubSub,
-  phoenix_profiler: []
-)
-
-Application.put_env(:phoenix_profiler, PhoenixProfilerTest.EndpointDisabled,
-  url: [host: "localhost", port: 4000],
-  secret_key_base: "LIyk9co9Mt8KowH/g1WeMkufq/9Bz1XuEZMhCZAwnBc7VFKCfkDq/vRw+Xso4Q0q",
-  live_view: [signing_salt: "NbA2FdHo"],
-  render_errors: [view: PhoenixProfilerTest.ErrorView],
-  check_origin: false,
-  pubsub_server: PhoenixProfilerTest.PubSub,
-  phoenix_profiler: [enable: false]
-)
-
-Application.put_env(:phoenix_profiler, PhoenixProfilerTest.EndpointNotConfigured,
-  url: [host: "localhost", port: 4000],
-  secret_key_base: "LIyk9co9Mt8KowH/g1WeMkufq/9Bz1XuEZMhCZAwnBc7VFKCfkDq/vRw+Xso4Q0q",
-  live_view: [signing_salt: "NbA2FdHo"],
-  render_errors: [view: PhoenixProfilerTest.ErrorView],
+  render_errors: [formats: [html: PhoenixProfilerTest.ErrorHTML], layout: false],
   check_origin: false,
   pubsub_server: PhoenixProfilerTest.PubSub
+]
+
+# The profiler is enabled: the endpoint has a `:phoenix_profiler` config.
+Application.put_env(
+  :phoenix_profiler,
+  PhoenixProfilerTest.Endpoint,
+  endpoint_config ++ [phoenix_profiler: []]
 )
 
-defmodule PhoenixProfilerTest.ErrorView do
-  use Phoenix.View, root: "test/templates"
+# The profiler is explicitly disabled.
+Application.put_env(
+  :phoenix_profiler,
+  PhoenixProfilerTest.EndpointDisabled,
+  endpoint_config ++ [phoenix_profiler: [enabled?: false]]
+)
 
-  def template_not_found(template, _assigns) do
+# The endpoint has no `:phoenix_profiler` config: the profiler is disabled.
+Application.put_env(:phoenix_profiler, PhoenixProfilerTest.EndpointNotConfigured, endpoint_config)
+
+# The profiler is enabled with custom options.
+Application.put_env(
+  :phoenix_profiler,
+  PhoenixProfilerTest.EndpointWithOptions,
+  endpoint_config ++
+    [
+      phoenix_profiler: [
+        except_patterns: [["admin"], ["internal", "oban"]],
+        toolbar_attrs: [id: "my-toolbar", "data-env": "test"]
+      ]
+    ]
+)
+
+defmodule PhoenixProfilerTest.ErrorHTML do
+  def render(template, _assigns) do
     Phoenix.Controller.status_message_from_template(template)
   end
 end
@@ -50,7 +58,6 @@ defmodule PhoenixProfilerTest.Router do
     pipe_through :browser
 
     get "/", PageController, :index
-    get "/disabled", PageController, :disabled
 
     forward "/plug-router", PlugRouter
   end
@@ -86,13 +93,6 @@ defmodule PhoenixProfilerTest.PageController do
     |> put_resp_content_type("text/html")
     |> send_resp(200, "<html><body><p>Hello, world</p></body></html>")
   end
-
-  def disabled(conn, _params) do
-    conn
-    |> PhoenixProfiler.disable()
-    |> put_resp_content_type("text/html")
-    |> send_resp(200, "<html><body><p>The profiler should be disabled.</p></body></html>")
-  end
 end
 
 defmodule PhoenixProfilerTest.APIController do
@@ -101,7 +101,7 @@ defmodule PhoenixProfilerTest.APIController do
   def index(conn, _params) do
     conn
     |> put_resp_content_type("application/json")
-    |> send_resp(200, Jason.encode!(%{"hello" => "world"}))
+    |> send_resp(200, ~s({"hello":"world"}))
   end
 end
 
@@ -127,14 +127,22 @@ defmodule PhoenixProfilerTest.EndpointNotConfigured do
   use Phoenix.Endpoint, otp_app: :phoenix_profiler
 end
 
+defmodule PhoenixProfilerTest.EndpointWithOptions do
+  use Phoenix.Endpoint, otp_app: :phoenix_profiler
+end
+
 Supervisor.start_link(
   [
     {Phoenix.PubSub, name: PhoenixProfilerTest.PubSub, adapter: Phoenix.PubSub.PG2},
     PhoenixProfilerTest.Endpoint,
     PhoenixProfilerTest.EndpointDisabled,
-    PhoenixProfilerTest.EndpointNotConfigured
+    PhoenixProfilerTest.EndpointNotConfigured,
+    PhoenixProfilerTest.EndpointWithOptions
   ],
   strategy: :one_for_one
 )
+
+# Hide the LiveView mount debug logs.
+Logger.configure(level: :warning)
 
 ExUnit.start()

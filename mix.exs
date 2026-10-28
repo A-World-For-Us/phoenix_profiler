@@ -24,7 +24,8 @@ defmodule PhoenixProfiler.MixProject do
 
   defp deps do
     [
-      {:phoenix_live_view, "~> 1.0"}
+      {:phoenix_live_view, "~> 1.0"},
+      {:floki, "~> 0.36.0", only: :test}
     ]
   end
 

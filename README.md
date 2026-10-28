@@ -46,23 +46,21 @@ If you're using Ecto, configure the repositories you want the profiler to listen
 
 ```elixir
 config :phoenix_profiler,
-  ecto_repos: [MyApp.Repo],
-  enabled?: true
+  ecto_repos: [MyApp.Repo]
 ```
 
-Additionaly, you can configure the N+1 detector to only show stacktraces from said modules.
+Additionally, you can configure the N+1 detector to only show stacktraces from said modules.
 ```elixir
 config :phoenix_profiler,
   ecto_repos: [MyApp.Repo],
-  enabled?: true,
   filter_on_modules: [Demo, DemoWeb]
 ```
 
 ### 2. Enable the profiler on your Endpoint
 
-PhoenixProfiler is disabled by default. In order to enable it,
-you must update your endpoint's `:dev` configuration to include the
-`:phoenix_profiler` option:
+PhoenixProfiler is disabled on any endpoint that has no `:phoenix_profiler`
+configuration. In order to enable it, you must update your endpoint's `:dev`
+configuration to include the `:phoenix_profiler` option:
 
 ```elixir
 # config/dev.exs
@@ -74,8 +72,8 @@ Most of the `:phoenix_profiler` configuration is endpoint dependant.
 
 The following options are available:
 
-* `:enable` - When set to `false`, disables profiling by default. You can
-  always enable profiling on a request via `enable/1`. Defaults to `true`.
+* `:enabled?` - When set to `false`, disables the profiler on this endpoint
+  (`:enable` is accepted as an alias). Defaults to `true`.
 
 * `:except_patterns` - A list of path where the profiler should not be
   enabled. Defaults to `[["phoenix", "live_reload", "frame"]]`. If you

@@ -22,6 +22,7 @@ config :demo, DemoWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4000],
   check_origin: false,
   code_reloader: true,
+  phoenix_profiler: [],
   debug_errors: true,
   secret_key_base: "OAV4a3NJoGSgZlIUJhFXrF75jivKvYgWKOm2tYYFQdaWOHsdQ4CAq8lBLXR2Kv1N",
   watchers: [
@@ -31,7 +32,6 @@ config :demo, DemoWeb.Endpoint,
 
 config :phoenix_profiler,
   ecto_repos: [Demo.Repo],
-  enabled?: true,
   filter_on_modules: [Demo, DemoWeb]
 
 # ## SSL Support

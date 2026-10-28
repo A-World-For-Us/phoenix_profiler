@@ -1,94 +1,77 @@
 defmodule PhoenixProfiler.PhoenixProfilerTest do
   use ExUnit.Case, async: true
   import Phoenix.ConnTest
-  alias PhoenixProfiler.ProfileStore
-  alias PhoenixProfilerTest.Endpoint
+  import Plug.Conn, only: [put_req_header: 3]
 
-  @endpoint Endpoint
+  alias PhoenixProfiler.Elements.{MemoryUsage, Request, RequestDuration}
+  alias PhoenixProfiler.Server
 
-  @token_header_key "x-debug-token"
-  @profiler_header_key "x-debug-token-link"
+  @endpoint PhoenixProfilerTest.Endpoint
 
   setup do
     {:ok, conn: build_conn()}
   end
 
-  test "profiling a browser request", %{conn: conn} do
+  test "profiles a browser request", %{conn: conn} do
     conn = get(conn, "/")
 
-    assert [token] = Plug.Conn.get_resp_header(conn, @token_header_key)
-    assert [url] = Plug.Conn.get_resp_header(conn, @profiler_header_key)
+    assert token = conn.private.phoenix_profiler
+    assert html_response(conn, 200) =~ ~s[class="phxprof-toolbar" data-token="#{token}"]
 
-    assert url ==
-             "http://localhost:4000/dashboard/_profiler?nav=PhoenixProfilerTest.Endpoint&panel=request&token=#{token}"
+    entries = Server.get_entries(token)
 
-    %{
-      conn: %Plug.Conn{
-        host: "www.example.com",
-        method: "GET",
-        path_info: [],
-        private: %{
-          phoenix_action: :index,
-          phoenix_controller: PhoenixProfilerTest.PageController,
-          phoenix_endpoint: PhoenixProfilerTest.Endpoint,
-          phoenix_router: PhoenixProfilerTest.Router,
-          phoenix_view: PhoenixProfilerTest.PageView
-        },
-        status: 200
-      },
-      metrics: metrics
-    } = ProfileStore.get(token)
+    assert {Request,
+            %{
+              conn: %Plug.Conn{
+                method: "GET",
+                request_path: "/",
+                status: 200,
+                private: %{
+                  phoenix_action: :index,
+                  phoenix_controller: PhoenixProfilerTest.PageController,
+                  phoenix_router: PhoenixProfilerTest.Router
+                }
+              }
+            }} = List.keyfind(entries, Request, 0)
 
-    assert metrics.total_duration > 0
-    assert metrics.endpoint_duration > 0
-    assert metrics.memory > 0
+    assert {RequestDuration, %{endpoint: duration}} = List.keyfind(entries, RequestDuration, 0)
+    assert duration > 0
+
+    assert {MemoryUsage, %{memory: memory}} = List.keyfind(entries, MemoryUsage, 0)
+    assert memory > 0
   end
 
-  test "profiling through a forwarded plug", %{conn: conn} do
+  test "profiles a request handled by a forwarded plug", %{conn: conn} do
     conn = get(conn, "/plug-router")
-    assert [token] = Plug.Conn.get_resp_header(conn, @token_header_key)
-    assert [_] = Plug.Conn.get_resp_header(conn, @profiler_header_key)
-    assert ProfileStore.get(token)
+
+    assert token = conn.private.phoenix_profiler
+    assert html_response(conn, 200) =~ ~s[data-token="#{token}"]
+
+    assert {Request, %{conn: %Plug.Conn{status: 200}}} =
+             List.keyfind(Server.get_entries(token), Request, 0)
   end
 
-  test "profiling an api request", %{conn: conn} do
+  test "profiles an api request without injecting the toolbar", %{conn: conn} do
     conn = get(conn, "/api")
 
-    assert [token] = Plug.Conn.get_resp_header(conn, @token_header_key)
-    assert [url] = Plug.Conn.get_resp_header(conn, @profiler_header_key)
+    assert response(conn, 200) == ~s({"hello":"world"})
+    assert response_content_type(conn, :json)
+    assert token = conn.private.phoenix_profiler
 
-    assert url ==
-             "http://localhost:4000/dashboard/_profiler?nav=PhoenixProfilerTest.Endpoint&panel=request&token=#{token}"
-
-    %{
-      conn: %Plug.Conn{
-        host: "www.example.com",
-        method: "GET",
-        path_info: ["api"],
-        private: %{
-          phoenix_action: :index,
-          phoenix_controller: PhoenixProfilerTest.APIController,
-          phoenix_endpoint: PhoenixProfilerTest.Endpoint,
-          phoenix_router: PhoenixProfilerTest.Router,
-          phoenix_view: PhoenixProfilerTest.APIView
-        },
-        status: 200
-      },
-      metrics: metrics
-    } = ProfileStore.get(token)
-
-    assert metrics.endpoint_duration > 0
-    assert metrics.memory > 0
+    assert {Request,
+            %{conn: %Plug.Conn{private: %{phoenix_controller: PhoenixProfilerTest.APIController}}}} =
+             List.keyfind(Server.get_entries(token), Request, 0)
   end
 
-  test "when disabled in the pipeline", %{conn: conn} do
-    conn = get(conn, "/disabled")
+  test "stores the entries under the token sent in the request header", %{conn: conn} do
+    conn =
+      conn
+      |> put_req_header("x-phxprof-token", "page-token")
+      |> get("/api")
 
-    assert Plug.Conn.get_resp_header(conn, @token_header_key) == []
-    assert Plug.Conn.get_resp_header(conn, @profiler_header_key) == []
+    assert conn.private.phoenix_profiler == "page-token"
 
-    assert %PhoenixProfiler.Profile{token: token} = conn.private.phoenix_profiler
-
-    refute ProfileStore.get(token)
+    assert {Request, %{conn: %Plug.Conn{request_path: "/api"}}} =
+             List.keyfind(Server.get_entries("page-token"), Request, 0)
   end
 end
