@@ -6,8 +6,6 @@ defmodule PhoenixProfiler.ToolbarLive do
   alias PhoenixProfiler.Server
   alias PhoenixProfiler.Utils
 
-  require Logger
-
   @toolbar_css_path Application.app_dir(:phoenix_profiler, "priv/static/toolbar.css")
   @toolbar_js_path Application.app_dir(:phoenix_profiler, "priv/static/toolbar.js")
   @external_resource @toolbar_css_path
