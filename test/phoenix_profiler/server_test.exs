@@ -4,6 +4,12 @@ defmodule PhoenixProfiler.ServerTest do
   alias PhoenixProfiler.Elements.{MemoryUsage, Request, RequestDuration}
   alias PhoenixProfiler.Server
 
+  defmodule PageLive do
+    use Phoenix.LiveView
+
+    def render(assigns), do: ~H""
+  end
+
   @endpoint_stop [:phoenix, :endpoint, :stop]
   @live_view_handle_event_stop [:phoenix, :live_view, :handle_event, :stop]
 
@@ -16,6 +22,17 @@ defmodule PhoenixProfiler.ServerTest do
       |> Map.put(:status, 200)
 
     :telemetry.execute(@endpoint_stop, %{duration: duration}, %{conn: conn})
+  end
+
+  # Emits the event LiveView sends at the end of a `handle_event/3` callback.
+  defp handle_event_stop(duration) do
+    socket = %Phoenix.LiveView.Socket{view: PageLive}
+
+    :telemetry.execute(@live_view_handle_event_stop, %{duration: duration}, %{
+      socket: socket,
+      event: "ping",
+      params: %{}
+    })
   end
 
   defp endpoint_durations(token) do
@@ -88,16 +105,9 @@ defmodule PhoenixProfiler.ServerTest do
       assert Enum.sort(endpoint_durations(token)) == [1, 2]
     end
 
-    test "ignores the LiveView events of the toolbar itself" do
+    test "stores the LiveView events" do
       token = Server.add_observable()
-
-      :telemetry.execute(@live_view_handle_event_stop, %{duration: 1}, %{
-        session: %{"_phxprof" => token}
-      })
-
-      assert Server.get_entries(token) == []
-
-      :telemetry.execute(@live_view_handle_event_stop, %{duration: 2}, %{session: %{}})
+      handle_event_stop(2)
 
       assert [{RequestDuration, %{latest_event: 2}}] = Server.get_entries(token)
     end
