@@ -150,7 +150,7 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
   @impl PhoenixProfiler.Element
   def entries_assigns(entries) do
     total_duration = entries |> Stream.map(& &1.measurements.total_time) |> Enum.sum()
-    total_data_size = entries |> Enum.sum_by(& &1.data_size)
+    total_data_size = entries |> Enum.map(& &1.data_size) |> Enum.sum()
     aggregated_queries = aggregate_data_for_unique_queries(entries)
 
     %{
@@ -187,10 +187,10 @@ defmodule PhoenixProfiler.Elements.EctoRepoUsage do
           &(&1.query == unique_entry.query && &1.stacktrace == unique_entry.stacktrace)
         )
 
-      total_time = Enum.sum_by(filtered_entries, & &1.measurements.total_time)
+      total_time = filtered_entries |> Enum.map(& &1.measurements.total_time) |> Enum.sum()
       total_time_us = System.convert_time_unit(total_time, :native, :microsecond)
 
-      total_data_size = Enum.sum_by(filtered_entries, & &1.data_size)
+      total_data_size = filtered_entries |> Enum.map(& &1.data_size) |> Enum.sum()
 
       execution_count = length(filtered_entries)
 

@@ -6,7 +6,7 @@ on:
       - main
 jobs:
   test:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       MIX_ENV: test
     strategy:
@@ -14,44 +14,29 @@ jobs:
       matrix:
         include:
           - pair:
-              elixir: "1.11"
-              otp: 23
-            phoenix: "1.5.9"
+              elixir: "1.14.5"
+              otp: "25.3"
           - pair:
-              elixir: "1.13"
-              otp: 24
-            phoenix: "1.5.13"
+              elixir: "1.17.3"
+              otp: "27.2"
           - pair:
-              elixir: "1.13"
-              otp: 24
-            phoenix: "1.6.6"
-          - pair:
-              elixir: "1.13"
-              otp: 24
-          - pair:
-              elixir: "1.14"
-              otp: 25
+              elixir: "1.18.4"
+              otp: "27.3"
             lint: lint
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.pair.otp}}
           elixir-version: ${{matrix.pair.elixir}}
 
-      - name: Set the phoenix version environment variable
-        run: |
-          echo "PHOENIX_PROFILER_PHOENIX_VERSION=${{ matrix.phoenix }}" >> $GITHUB_ENV
-        if: ${{ matrix.phoenix }}
-
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
-          path: deps
-          key: ${{ runner.os }}-mix-${{matrix.phoenix}}-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-${{ hashFiles('**/mix.lock') }}-v2
-
-      - run: mix deps.unlock --all
-        if: ${{ matrix.phoenix }}
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-${{ hashFiles('**/mix.lock') }}-v3
 
       - run: mix deps.get
 

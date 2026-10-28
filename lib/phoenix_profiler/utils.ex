@@ -1,10 +1,13 @@
 defmodule PhoenixProfiler.Utils do
   @moduledoc false
 
-  @doc "Get the config of a given `conn` or `socket`."
+  @doc """
+  Returns the `:phoenix_profiler` config of the endpoint of a given `conn` or
+  `socket`, or `nil` when the endpoint has no `:phoenix_profiler` config.
+  """
   def conn_or_socket_config(conn_or_socket) do
     endpoint = conn_or_socket_endpoint(conn_or_socket)
-    endpoint.config(:phoenix_profiler, [])
+    endpoint.config(:phoenix_profiler)
   end
 
   # Returns the endpoint for a given `conn` or `socket`

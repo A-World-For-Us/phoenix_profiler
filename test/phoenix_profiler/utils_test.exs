@@ -1,45 +1,57 @@
 defmodule PhoenixProfiler.UtilsTest do
-  use ExUnit.Case
-  alias Phoenix.LiveView
+  # Not async: `elements/0` reads the application env.
+  use ExUnit.Case, async: false
 
-  defp build_socket(endpoint \\ PhoenixProfilerTest.Endpoint) do
-    %LiveView.Socket{endpoint: endpoint}
+  alias PhoenixProfiler.Utils
+
+  defmodule CustomElement do
+    use PhoenixProfiler.Element
+
+    def render(assigns), do: ~H""
+    def subscribed_events, do: []
+    def collect(_event, _measurements, _metadata), do: nil
+    def entries_assigns(_entries), do: %{}
   end
 
-  defp connect(%LiveView.Socket{} = socket) do
-    # TODO: replace with struct update when we require LiveView v0.15+.
-    socket = Map.put(socket, :transport_pid, self())
+  describe "conn_or_socket_config/1" do
+    test "returns the endpoint config for a conn" do
+      conn =
+        :get
+        |> Plug.Test.conn("/")
+        |> Plug.Conn.put_private(:phoenix_endpoint, PhoenixProfilerTest.EndpointDisabled)
 
-    # TODO: remove when we require LiveView v0.15+.
-    if Map.has_key?(socket, :connected?) do
-      Map.put(socket, :connected?, true)
-    else
-      socket
+      assert Utils.conn_or_socket_config(conn) == [enabled?: false]
+    end
+
+    test "returns the endpoint config for a socket" do
+      socket = %Phoenix.LiveView.Socket{endpoint: PhoenixProfilerTest.Endpoint}
+
+      assert Utils.conn_or_socket_config(socket) == []
+    end
+
+    test "returns nil when the endpoint is not configured" do
+      socket = %Phoenix.LiveView.Socket{endpoint: PhoenixProfilerTest.EndpointNotConfigured}
+
+      assert Utils.conn_or_socket_config(socket) == nil
     end
   end
 
-  describe "maybe_mount_profile/1" do
-    test "when the socket is disconnected, is a no-op" do
-      socket = build_socket()
-      refute socket.private[:phoenix_profiler]
-      assert PhoenixProfiler.Utils.maybe_mount_profile(socket) == socket
+  describe "elements/0" do
+    test "returns the built-in elements" do
+      assert Utils.elements() == [
+               PhoenixProfiler.Elements.Request,
+               PhoenixProfiler.Elements.RequestDuration,
+               PhoenixProfiler.Elements.MemoryUsage,
+               PhoenixProfiler.Elements.EctoRepoUsage,
+               PhoenixProfiler.Elements.LiveExceptions
+             ]
     end
 
-    test "puts a profile on the socket when the profiler is configured on the endpoint" do
-      for endpoint <- [PhoenixProfilerTest.Endpoint, PhoenixProfilerTest.EndpointDisabled] do
-        socket =
-          endpoint
-          |> build_socket()
-          |> connect()
-          |> PhoenixProfiler.Utils.maybe_mount_profile()
+    test "appends the configured custom elements" do
+      Application.put_env(:phoenix_profiler, :custom_elements, [CustomElement])
+      on_exit(fn -> Application.delete_env(:phoenix_profiler, :custom_elements) end)
 
-        assert %PhoenixProfiler.Profile{} = socket.private.phoenix_profiler
-      end
-    end
-
-    test "when the profiler is not defined on the endpoint, is a no-op" do
-      socket = PhoenixProfilerTest.EndpointNotConfigured |> build_socket() |> connect()
-      assert PhoenixProfiler.Utils.maybe_mount_profile(socket) == socket
+      assert List.last(Utils.elements()) == CustomElement
     end
   end
 end

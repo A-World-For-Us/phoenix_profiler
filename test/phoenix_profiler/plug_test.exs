@@ -3,112 +3,112 @@ defmodule PhoenixProfiler.PlugTest do
   import Plug.Test
   import Plug.Conn
 
-  @token_header_key "x-debug-token"
-  @profiler_header_key "x-debug-token-link"
+  @toolbar_start "<!-- START Phoenix Web Debug Toolbar -->"
+  @toolbar_end "<!-- END Phoenix Web Debug Toolbar -->"
 
-  defp conn(path) do
+  defp build_conn(path, endpoint \\ PhoenixProfilerTest.Endpoint) do
     :get
     |> conn(path)
-    |> put_private(:phoenix_endpoint, PhoenixProfilerTest.Endpoint)
+    |> put_private(:phoenix_endpoint, endpoint)
   end
 
-  test "injects debug token headers if configured" do
-    opts = PhoenixProfiler.init([])
-
-    conn =
-      conn("/")
-      |> PhoenixProfiler.call(opts)
-      |> send_resp(200, "")
-
-    assert [token] = Plug.Conn.get_resp_header(conn, @token_header_key)
-    assert [url] = Plug.Conn.get_resp_header(conn, @profiler_header_key)
-
-    assert url ==
-             "http://localhost:4000/dashboard/_profiler?nav=PhoenixProfilerTest.Endpoint&panel=request&token=#{token}"
+  defp html_response(conn, body) do
+    conn
+    |> put_resp_content_type("text/html")
+    |> PhoenixProfiler.call(PhoenixProfiler.init([]))
+    |> send_resp(200, body)
   end
 
-  test "skips debug token when disabled at the Endpoint" do
-    opts = PhoenixProfiler.init([])
+  test "injects the toolbar before the </body> tag of html responses" do
+    conn = html_response(build_conn("/"), "<html><body><h1>PhoenixProfiler</h1></body></html>")
+    body = to_string(conn.resp_body)
 
-    conn =
-      conn("/")
-      |> put_private(:phoenix_endpoint, PhoenixProfilerTest.EndpointDisabled)
-      |> PhoenixProfiler.call(opts)
-      |> send_resp(200, "")
-
-    assert get_resp_header(conn, @token_header_key) == []
-    assert get_resp_header(conn, @profiler_header_key) == []
+    assert token = conn.private.phoenix_profiler
+    assert body =~ ~s[<h1>PhoenixProfiler</h1>#{@toolbar_start}]
+    assert body =~ ~s[class="phxprof-toolbar" data-token="#{token}"]
+    assert String.ends_with?(body, "#{@toolbar_end}\n</body></html>")
   end
 
-  test "injects debug toolbar for html requests if configured and contains the </body> tag" do
-    opts = PhoenixProfiler.init([])
-
+  test "injects the toolbar before the last </body> tag" do
     conn =
-      conn("/")
-      |> put_resp_content_type("text/html")
-      |> PhoenixProfiler.call(opts)
-      |> send_resp(200, "<html><body><h1>PhoenixProfiler</h1></body></html>")
-
-    profile = conn.private.phoenix_profiler
+      html_response(
+        build_conn("/"),
+        "<html><body><h1><body>PhoenixProfiler</body></h1></body></html>"
+      )
 
     assert to_string(conn.resp_body) =~
-             ~s[<html><body><h1>PhoenixProfiler</h1><!-- START Phoenix Web Debug Toolbar -->\n<div id="pwdt#{profile.token}" class="phxprof-toolbar" role="region" name="Phoenix Web Debug Toolbar">]
+             ~s[<h1><body>PhoenixProfiler</body></h1>#{@toolbar_start}]
   end
 
-  test "injects debug toolbar for html requests if configured and contains multiple </body> tags" do
-    opts = PhoenixProfiler.init([])
-
+  test "reuses the token sent in the x-phxprof-token header" do
     conn =
-      conn("/")
-      |> put_resp_content_type("text/html")
-      |> PhoenixProfiler.call(opts)
-      |> send_resp(200, "<html><body><h1><body>PhoenixProfiler</body></h1></body></html>")
+      build_conn("/")
+      |> put_req_header("x-phxprof-token", "my-token")
+      |> html_response("<html><body></body></html>")
 
-    profile = conn.private.phoenix_profiler
+    assert conn.private.phoenix_profiler == "my-token"
+    assert to_string(conn.resp_body) =~ ~s[data-token="my-token"]
+  end
+
+  test "applies the :toolbar_attrs of the endpoint config" do
+    conn =
+      html_response(
+        build_conn("/", PhoenixProfilerTest.EndpointWithOptions),
+        "<html><body></body></html>"
+      )
 
     assert to_string(conn.resp_body) =~
-             ~s[<html><body><h1><body>PhoenixProfiler</body></h1><!-- START Phoenix Web Debug Toolbar -->\n<div id="pwdt#{profile.token}" class="phxprof-toolbar" role="region" name="Phoenix Web Debug Toolbar">]
+             ~r[<div id="my-toolbar" data-env="test" class="phxprof-toolbar"]
   end
 
-  test "skips debug toolbar injection when disabled at the Endpoint" do
-    opts = PhoenixProfiler.init([])
-
+  test "skips the toolbar when the profiler is disabled on the endpoint" do
     conn =
-      conn("/")
-      |> put_private(:phoenix_endpoint, PhoenixProfilerTest.EndpointDisabled)
-      |> put_resp_content_type("text/html")
-      |> PhoenixProfiler.call(opts)
-      |> send_resp(200, "<html><body><h1>PhoenixProfiler</h1></body></html>")
+      html_response(
+        build_conn("/", PhoenixProfilerTest.EndpointDisabled),
+        "<html><body><h1>PhoenixProfiler</h1></body></html>"
+      )
 
-    assert get_resp_header(conn, @token_header_key) == []
-
+    refute conn.private[:phoenix_profiler]
     assert to_string(conn.resp_body) == "<html><body><h1>PhoenixProfiler</h1></body></html>"
   end
 
-  test "skips toolbar injection if html response is missing the body tag" do
-    opts = PhoenixProfiler.init([])
-
+  test "skips the toolbar when the endpoint has no :phoenix_profiler config" do
     conn =
-      conn("/")
-      |> put_resp_content_type("text/html")
-      |> PhoenixProfiler.call(opts)
-      |> send_resp(200, "<h1>PhoenixProfiler</h1>")
+      html_response(
+        build_conn("/", PhoenixProfilerTest.EndpointNotConfigured),
+        "<html><body><h1>PhoenixProfiler</h1></body></html>"
+      )
 
+    refute conn.private[:phoenix_profiler]
+    assert to_string(conn.resp_body) == "<html><body><h1>PhoenixProfiler</h1></body></html>"
+  end
+
+  test "skips the toolbar for paths matching the :except_patterns" do
+    conn =
+      html_response(
+        build_conn("/admin/users", PhoenixProfilerTest.EndpointWithOptions),
+        "<html><body></body></html>"
+      )
+
+    refute conn.private[:phoenix_profiler]
+    assert to_string(conn.resp_body) == "<html><body></body></html>"
+  end
+
+  test "skips the toolbar when the html has no body tag" do
+    conn = html_response(build_conn("/"), "<h1>PhoenixProfiler</h1>")
+
+    assert conn.private.phoenix_profiler
     assert to_string(conn.resp_body) == "<h1>PhoenixProfiler</h1>"
   end
 
-  test "skips toolbar injection if not an html request" do
-    opts = PhoenixProfiler.init([])
-
+  test "skips the toolbar for non html responses but keeps the token" do
     conn =
-      conn("/")
+      build_conn("/")
       |> put_resp_content_type("application/json")
-      |> PhoenixProfiler.call(opts)
-      |> send_resp(200, "")
+      |> PhoenixProfiler.call(PhoenixProfiler.init([]))
+      |> send_resp(200, "{}")
 
-    profile = conn.private.phoenix_profiler
-
-    refute to_string(conn.resp_body) =~
-             ~s(<div id="pwdt#{profile.token}")
+    assert conn.private.phoenix_profiler
+    assert to_string(conn.resp_body) == "{}"
   end
 end

@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The profiler is disabled on endpoints without a `:phoenix_profiler` config, as documented. The `:enabled?` endpoint option is honoured (`:enable` is accepted as an alias). The application-level `config :phoenix_profiler, enabled?:` key was never read and is removed from the docs and the demo.
+- Compatibility with Elixir 1.14 (`Enum.sum_by/2` requires Elixir 1.18).
+- The test suite targets the current API again. The CI matrix now covers Elixir 1.14 to 1.18 with Phoenix 1.7 / LiveView 1.0.
+
 ### Breaking Changes
 
 The `PhoenixProfiler` server is now started by the application. Remove the child spec from your telemetry supervisor:

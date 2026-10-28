@@ -5,11 +5,22 @@ defmodule PhoenixProfiler.Profiler do
 
   @doc """
   Verifies if the profiler is enabled on a given `conn` or `socket`.
+
+  The profiler is enabled when the endpoint has a `:phoenix_profiler`
+  configuration, its `:enabled?` option is not `false` and, for a `conn`,
+  the request path does not match any of the `:except_patterns`.
   """
   @spec enabled?(receiver) :: boolean() when receiver: Plug.Conn.t() | Phoenix.Socket.t()
   def enabled?(conn_or_socket) do
-    config = Utils.conn_or_socket_config(conn_or_socket)
-    Keyword.get(config, :enabled?, true) and not match_except_patterns?(conn_or_socket, config)
+    case Utils.conn_or_socket_config(conn_or_socket) do
+      nil -> false
+      config -> enabled_option(config) and not match_except_patterns?(conn_or_socket, config)
+    end
+  end
+
+  # `:enable` is accepted as an alias of `:enabled?`.
+  defp enabled_option(config) do
+    Keyword.get_lazy(config, :enabled?, fn -> Keyword.get(config, :enable, true) end)
   end
 
   @default_except_patterns [["phoenix", "live_reload", "frame"]]

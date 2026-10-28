@@ -1,178 +1,129 @@
 defmodule PhoenixProfiler.ServerTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
+
+  alias PhoenixProfiler.Elements.{MemoryUsage, Request, RequestDuration}
   alias PhoenixProfiler.Server
-  doctest Server
 
-  describe "subscribe/1" do
-    test "returns :error when no owner is registered" do
-      assert Server.subscribe(self()) == :error
+  @endpoint_stop [:phoenix, :endpoint, :stop]
+  @live_view_handle_event_stop [:phoenix, :live_view, :handle_event, :stop]
+
+  # Emits the event `Plug.Telemetry` sends at the end of a request.
+  defp endpoint_stop(duration) do
+    conn =
+      :get
+      |> Plug.Test.conn("/")
+      |> Plug.Conn.put_private(:phoenix_endpoint, PhoenixProfilerTest.Endpoint)
+      |> Map.put(:status, 200)
+
+    :telemetry.execute(@endpoint_stop, %{duration: duration}, %{conn: conn})
+  end
+
+  defp endpoint_durations(token) do
+    for {RequestDuration, %{endpoint: duration}} <- Server.get_entries(token), do: duration
+  end
+
+  describe "add_observable/1" do
+    test "generates a token and stores it in the process dictionary" do
+      token = Server.add_observable()
+
+      assert is_binary(token)
+      assert Process.get(:phoenix_profiler_token) == token
     end
 
-    test "returns {:ok, token} for a registered owner" do
-      {:ok, token} = PhoenixProfiler.Server.make_observable(:endpoint)
-      assert {:ok, ^token} = Server.subscribe(self())
+    test "uses the given token" do
+      assert Server.add_observable("my-token") == "my-token"
+      assert Process.get(:phoenix_profiler_token) == "my-token"
+    end
+  end
+
+  describe "get_entries/1" do
+    test "returns an empty list for an unknown token" do
+      assert Server.get_entries("unknown") == []
+    end
+  end
+
+  describe "telemetry" do
+    test "stores one entry per element subscribed to the event" do
+      token = Server.add_observable()
+      endpoint_stop(42)
+
+      entries = Server.get_entries(token)
+
+      assert {RequestDuration, %{endpoint: 42}} in entries
+      assert {Request, %{conn: %Plug.Conn{status: 200}}} = List.keyfind(entries, Request, 0)
+      assert {MemoryUsage, %{memory: memory}} = List.keyfind(entries, MemoryUsage, 0)
+      assert memory > 0
     end
 
-    test "sends telemetry for owner" do
-      {:ok, _} = PhoenixProfiler.Server.make_observable(:endpoint)
-      {:ok, token} = Server.subscribe(self())
+    test "appends the entries of the following events" do
+      token = Server.add_observable()
+      endpoint_stop(1)
+      endpoint_stop(2)
 
-      time = System.unique_integer()
-      :ok = test_telemetry(time)
-
-      assert_receive_telemetry(token, time)
+      assert endpoint_durations(token) == [1, 2]
     end
 
-    test "receives telemetry for $callers" do
-      {:ok, _} = PhoenixProfiler.Server.make_observable(:endpoint)
-      {:ok, token} = Server.subscribe(self())
+    test "ignores events emitted by processes without a token" do
+      token = Server.add_observable()
+      parent = self()
 
-      inner_1 = System.unique_integer()
-      inner_2 = System.unique_integer()
+      spawn(fn ->
+        endpoint_stop(1)
+        send(parent, :done)
+      end)
+
+      assert_receive :done
+      assert Server.get_entries(token) == []
+    end
+
+    test "finds the token through $callers" do
+      token = Server.add_observable()
 
       Task.async(fn ->
-        :ok = test_telemetry(inner_1)
-        Task.async(fn -> test_telemetry(inner_2) end) |> Task.await()
+        endpoint_stop(1)
+        Task.async(fn -> endpoint_stop(2) end) |> Task.await()
       end)
       |> Task.await()
 
-      assert_receive_telemetry(token, inner_1)
-      assert_receive_telemetry(token, inner_2)
+      assert Enum.sort(endpoint_durations(token)) == [1, 2]
     end
 
-    test "monitors owner pid and cleans up tables on :DOWN", %{test: test} do
-      parent = self()
+    test "ignores the LiveView events of the toolbar itself" do
+      token = Server.add_observable()
 
-      {pid, ref} =
-        spawn_monitor(fn ->
-          {:ok, token} = Server.make_observable(test)
-          send(parent, {:token, token})
+      :telemetry.execute(@live_view_handle_event_stop, %{duration: 1}, %{
+        session: %{"_phxprof" => token}
+      })
 
-          receive do
-            :exit -> nil
-          end
-        end)
+      assert Server.get_entries(token) == []
 
-      assert_receive {:token, token}, 1_000, "didn't get a token"
+      :telemetry.execute(@live_view_handle_event_stop, %{duration: 2}, %{session: %{}})
 
-      assert [{^pid, ^token}] = :ets.lookup(Server.Live, pid)
-
-      {:ok, ^token} = Server.subscribe(pid)
-      assert [{^token, ^parent}] = :ets.lookup(Server.Listener, token)
-
-      send(pid, :exit)
-
-      receive do
-        {:DOWN, ^ref, :process, ^pid, :normal} ->
-          # force sync by registering/subscribing in another process
-          spawn(fn ->
-            {:ok, _} = Server.make_observable(test)
-            {:ok, _} = Server.subscribe(self())
-            send(parent, :continue)
-          end)
-
-          receive do
-            :continue -> :ok
-          end
-
-          # Give ETS two tries to return an empty list.
-          unless :ets.lookup(Server.Live, pid) == [] do
-            :timer.sleep(1)
-            assert :ets.lookup(Server.Live, pid) == []
-          end
-
-          assert :ets.lookup(Server.Listener, pid) == []
-      end
-    end
-
-    test "disable and enable telemetry messages" do
-      {:ok, _} = PhoenixProfiler.Server.make_observable(:endpoint)
-      {:ok, token} = Server.subscribe(self())
-
-      :ok = test_telemetry(msg_1 = System.unique_integer())
-      assert_receive_telemetry(token, msg_1)
-
-      Server.profiling(false)
-      :ok = test_telemetry(msg_2 = System.unique_integer())
-
-      Server.profiling(true)
-      :ok = test_telemetry(msg_3 = System.unique_integer())
-
-      # Ensure we receive the 3rd message...
-      assert_receive_telemetry(token, msg_3)
-
-      # ...then we can ensure we never received the 2nd message.
-      refute_received_telemetry(token, msg_2)
-    end
-
-    test "disable and enable are idempotent" do
-      {:ok, _} = PhoenixProfiler.Server.make_observable(:endpoint)
-      {:ok, token} = Server.subscribe(self())
-
-      :ok = test_telemetry(msg_1 = System.unique_integer())
-
-      _ = Server.profiling(false)
-      _ = Server.profiling(false)
-
-      :ok = test_telemetry(msg_2 = System.unique_integer())
-
-      _ = Server.profiling(true)
-      _ = Server.profiling(true)
-
-      :ok = test_telemetry(msg_3 = System.unique_integer())
-
-      assert_receive_telemetry(token, msg_1)
-      assert_receive_telemetry(token, msg_3)
-
-      refute_received_telemetry(token, msg_2)
+      assert [{RequestDuration, %{latest_event: 2}}] = Server.get_entries(token)
     end
   end
 
-  test "reset/0 deletes all objects in the entry tables", %{test: test} do
-    {:ok, _} = Server.make_observable(test)
+  describe "subscribe/2" do
+    test "sends all the entries of the token to the subscriber on each event" do
+      token = Server.add_observable()
+      Server.subscribe(self(), token)
 
-    tab = Server.Entry
+      endpoint_stop(1)
+      assert_receive {:entries, entries}
+      assert [1] = for({RequestDuration, %{endpoint: d}} <- entries, do: d)
 
-    :ets.insert(tab, {"a", %{}})
-    :ets.insert(tab, {"b", %{}})
-    :ets.insert(tab, {"c", %{}})
+      endpoint_stop(2)
+      assert_receive {:entries, entries}
+      assert [1, 2] = for({RequestDuration, %{endpoint: d}} <- entries, do: d)
+    end
 
-    # called thru the delegate for coverage
-    PhoenixProfiler.reset()
+    test "does not notify the subscribers of other tokens" do
+      token = Server.add_observable()
+      Server.subscribe(self(), "another-token")
 
-    assert :ets.tab2list(tab) == []
-    assert :ets.tab2list(Server.Endpoint) == []
-  end
-
-  test "sweeping entries" do
-    tab = Server.Entry
-
-    :ets.insert(tab, {"a", %{}})
-    :ets.insert(tab, {"b", %{}})
-    :ets.insert(tab, {"c", %{}})
-    :ets.insert(tab, {"d", %{}})
-
-    pid = Process.whereis(PhoenixProfiler.Server)
-    send(pid, :sweep)
-    :timer.sleep(100)
-
-    assert :ets.tab2list(tab) == []
-    assert :ets.tab2list(Server.Endpoint) == []
-  end
-
-  @test_telemetry_event [:phoenix_profiler, :internal, :this_is_only_used_for_testing]
-
-  defp test_telemetry(time) do
-    :telemetry.execute(@test_telemetry_event, %{system_time: time}, %{})
-  end
-
-  defp assert_receive_telemetry(token, time) do
-    assert_receive {PhoenixProfiler.Server, ^token,
-                    {:telemetry, @test_telemetry_event, ^time, nil}}
-  end
-
-  defp refute_received_telemetry(token, time) do
-    refute_received {PhoenixProfiler.Server, ^token,
-                     {:telemetry, @test_telemetry_event, ^time, nil}}
+      endpoint_stop(1)
+      assert Server.get_entries(token) != []
+      refute_received {:entries, _}
+    end
   end
 end
